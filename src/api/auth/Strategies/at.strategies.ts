@@ -46,6 +46,8 @@ export class AtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User not found');
     }
 
+    //console.log(user);
+
     return user;
   }
 }

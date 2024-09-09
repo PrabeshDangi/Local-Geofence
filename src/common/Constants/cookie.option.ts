@@ -4,13 +4,13 @@ export const accessTokenOption: CookieOptions = {
   httpOnly: true,
   secure: false,
   sameSite: 'lax',
-  maxAge: parseInt(process.env.ACCTOKEN_TTL),
+  maxAge: 54000,
 };
 
-export const refreshTokenoption: CookieOptions = {
+export const refreshTokenOption: CookieOptions = {
   httpOnly: true,
   secure: false,
   sameSite: 'none',
-  maxAge: parseInt(process.env.REFTOKEN_TTL),
+  maxAge: 36288000,
   path: process.env.REFTOKEN_PATH,
 };

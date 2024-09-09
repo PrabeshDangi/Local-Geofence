@@ -14,6 +14,10 @@ import { PrismaService } from 'src/global/prisma/prisma.service';
       secret: process.env.ACCESS_SECRET,
       signOptions: { expiresIn: process.env.ACCTOKEN_TTL },
     }),
+    JwtModule.register({
+      secret: process.env.REFRESH_SECRET,
+      signOptions: { expiresIn: process.env.REFTOKEN_TTL },
+    }),
   ],
   controllers: [AuthController],
   providers: [AuthService, AtStrategy, RtStrategy, PrismaService],

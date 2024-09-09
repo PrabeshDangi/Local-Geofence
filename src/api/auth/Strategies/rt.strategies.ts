@@ -17,19 +17,23 @@ export class RtStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   }
 
   private static extractJWT(req: Request): string | null {
-    const tokenFromCookie = req.cookies?.refresh_token;
+    const tokenFromCookie = req.cookies?.Refresh_Token;
     const tokenFromHeader = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
     if (!(tokenFromCookie || tokenFromHeader)) {
       return null;
     }
+    // console.log(tokenFromCookie);
+    // console.log('J payo tei');
+    // console.log(tokenFromHeader);
 
     return tokenFromCookie || tokenFromHeader;
   }
 
-  async validate(req: Request, payload: any) {
+  async validate(payload: any) {
     if (!payload) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+    //console.log(payload);
     return payload;
   }
 }

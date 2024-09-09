@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -12,7 +13,9 @@ import { registerDTO } from './Dto/register.dto';
 import { User } from '@prisma/client';
 import { LoginDTO } from './Dto/login.dto';
 import { JwtGuard } from '../../common/Guard/Jwt.guard';
-import { LoginResponseType, LogoutResponseType } from './Types/index';
+import { LogoutResponseType, Tokens } from './Types/index';
+import { RtGuard } from 'src/common/Guard/rt.guard';
+import { refreshTokenOption } from 'src/common/Constants/cookie.option';
 
 @Controller('auth')
 export class AuthController {
@@ -31,14 +34,10 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('local/login')
-  async singinLocal(
-    @Body() logindto: LoginDTO,
-    @Res() res,
-  ): Promise<LoginResponseType> {
+  async singinLocal(@Body() logindto: LoginDTO, @Res() res): Promise<Tokens> {
     try {
       const { access_token, refresh_token } =
         await this.authService.singinLocal(logindto, res);
-
       return res.json({
         message: 'Login successful',
         access_token,
@@ -65,8 +64,15 @@ export class AuthController {
     }
   }
 
+  @UseGuards(RtGuard)
   @Post('/token-refresh')
-  refreshToken() {
-    this.authService.refreshToken();
+  async refreshToken(@Req() req, @Res() res): Promise<Tokens> {
+    const tokens = await this.authService.refreshToken(req);
+
+    if (tokens?.refresh_token) {
+      res.cookie('refresh_token', tokens.refresh_token, refreshTokenOption);
+    }
+
+    return res.json({ access_token: tokens.access_token });
   }
 }

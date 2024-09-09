@@ -7,6 +7,6 @@ import { AtStrategy } from './api/auth/Strategies/at.strategies';
 @Module({
   imports: [PrismaModule, AuthModule, GeofenceModule],
   controllers: [],
-  providers: [AtStrategy],
+  providers: [],
 })
 export class AppModule {}

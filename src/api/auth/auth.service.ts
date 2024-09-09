@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { registerDTO } from './Dto/register.dto';
@@ -11,10 +12,10 @@ import { JwtService } from '@nestjs/jwt';
 import { Tokens } from './Types/tokens.types';
 import { JwtPayload } from './Types/jwtpayload.types';
 import { LoginDTO } from './Dto/login.dto';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import {
   accessTokenOption,
-  refreshTokenoption,
+  refreshTokenOption,
 } from '../../common/Constants/cookie.option';
 
 @Injectable()
@@ -59,7 +60,10 @@ export class AuthService {
       throw new NotFoundException('User not registered!!');
     }
 
-    const isPasswordCorrect = bcrypt.compare(password, userAvailable.password);
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      userAvailable.password,
+    );
 
     if (!isPasswordCorrect) {
       throw new BadRequestException('Invalid credentials!!');
@@ -69,10 +73,9 @@ export class AuthService {
       userAvailable.id,
       email,
     );
-
     res
       .cookie('access_token', access_token, accessTokenOption)
-      .cookie('refresh_token', refresh_token, refreshTokenoption);
+      .cookie('refresh_token', refresh_token, refreshTokenOption);
 
     return { access_token, refresh_token };
   }
@@ -81,14 +84,46 @@ export class AuthService {
     try {
       res
         .clearCookie('access_token', accessTokenOption)
-        .clearCookie('refresh_token', refreshTokenoption);
+        .clearCookie('refresh_token', refreshTokenOption);
 
       return true;
     } catch (error) {
       throw new Error(error);
     }
   }
-  refreshToken() {}
+
+  async refreshToken(req: Request): Promise<Tokens> {
+    const refreshToken = req.cookies.refresh_token;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
+
+    const payload = this.verifyRefreshToken(refreshToken);
+
+    // Check if the refresh token is about to expire
+    const isExpiringSoon = this.isTokenExpiringSoon(payload.exp);
+
+    let access_token: string;
+    let refresh_token: string | null = null;
+
+    if (isExpiringSoon) {
+      const { access_token, refresh_token } = await this.getTokens(
+        payload.id,
+        payload.email,
+      );
+    } else {
+      access_token = await this.generateAccessToken(
+        payload.userId,
+        payload.email,
+      );
+    }
+
+    return {
+      access_token,
+      refresh_token,
+    };
+  }
 
   private async hashData(data: string): Promise<string> {
     return await bcrypt.hash(data, 10);
@@ -115,5 +150,34 @@ export class AuthService {
       access_token: at,
       refresh_token: rt,
     };
+  }
+
+  private verifyRefreshToken(token: string): any {
+    try {
+      return this.jwt.verify(token, { secret: process.env.REFRESH_SECRET });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  private isTokenExpiringSoon(expiration: number): boolean {
+    const currentTime = Math.floor(Date.now() / 1000);
+    return expiration - currentTime < 86400;
+  }
+
+  private async generateAccessToken(
+    userId: number,
+    email: string,
+  ): Promise<string> {
+    const jwtPayload: JwtPayload = {
+      sub: userId,
+      email: email,
+    };
+    return this.jwt.signAsync(
+      this.jwt.signAsync(jwtPayload, {
+        secret: process.env.ACCESS_SECRET,
+        expiresIn: '15m',
+      }),
+    );
   }
 }
