@@ -1,20 +1,28 @@
-import { Role } from "@prisma/client"
-import { IsNotEmpty, IsOptional, IsString } from "class-validator"
+import { Role } from '@prisma/client';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+} from 'class-validator';
 
-export class registerDTO{
-    @IsNotEmpty()
-    @IsString()
-    name:string
+export class SignupDto {
+  @IsString()
+  @Length(3, 20)
+  @IsNotEmpty()
+  name: string;
 
-    @IsNotEmpty()
-    @IsString()
-    email:string
+  @IsString()
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
 
-    @IsNotEmpty()
-    @IsString()
-    password:string
+  @IsOptional()
+  role?: Role;
 
-    @IsOptional()
-    role?:Role
-
+  @IsNotEmpty()
+  @IsString()
+  @Length(6, 100, { message: 'password must be of minimum length 6' })
+  password: string;
 }

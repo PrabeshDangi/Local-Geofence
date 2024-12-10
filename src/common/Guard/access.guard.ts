@@ -6,7 +6,7 @@ import { PUBLIC_KEY } from '../Decorator/Public.decorator';
 
 @Injectable()
 export class JwtGuard extends AuthGuard('jwt') {
-  constructor(private reflector: Reflector) {
+  constructor(private readonly reflector: Reflector) {
     super();
   }
 
