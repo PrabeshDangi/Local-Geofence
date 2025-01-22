@@ -1,11 +1,9 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './global/prisma/prisma.module';
-import { AuthModule } from './api/auth/auth.module';
-import { GeofenceModule } from './api/geofence/geofence.module';
-import { AtStrategy } from './api/auth/Strategies/at.strategies';
+import { AdminModule } from './api/admin/admin.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, GeofenceModule],
+  imports: [PrismaModule, AdminModule],
   controllers: [],
   providers: [],
 })

@@ -12,7 +12,7 @@ import { updateGeoFenceDTO } from './dto/updategeofence.dto';
 
 @Injectable()
 export class GeofenceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly  prisma: PrismaService) {}
 
   async addGeofence(
     creategeofencedto: createGeofenceDTO,

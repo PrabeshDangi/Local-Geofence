@@ -16,7 +16,7 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  async SignupUser(signupdto: SignupDto, res: Response) {
+  async SignupUser(signupdto: SignupDto) {
     const { name, email, password } = signupdto;
 
     const isUserAvailable = await this.prisma.user.findUnique({
@@ -34,7 +34,7 @@ export class AuthService {
         name,
         email,
         password: hashedpassword,
-        role: signupdto.role || 'user',
+        role: 'user',
       },
     });
 
@@ -59,6 +59,10 @@ export class AuthService {
 
     if (!isPasswordCorrect) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (userAvailable.role != 'user') {
+      throw new UnauthorizedException('Permission denied!!');
     }
 
     const { accessToken, refreshToken } = await this.signTokens({

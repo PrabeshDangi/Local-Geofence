@@ -7,33 +7,37 @@ import {
   Req,
   Res,
   UseGuards,
+  UsePipes,
 } from '@nestjs/common';
-import { User } from '@prisma/client';
 import { Response } from 'express';
 import {
   accessTokenOption,
   refreshTokenOption,
 } from 'src/common/Constants/cookie.option';
+import { HttpResponse } from 'src/common/utils/http-response.util';
 import { RtGuard } from 'src/common/Guard/rt.guard';
-import { JwtGuard } from '../../common/Guard/access.guard';
+import { JwtGuard } from 'src/common/Guard/access.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './Dto/login.dto';
 import { SignupDto } from './Dto/register.dto';
 import { Tokens } from './Types/index';
+import { Public } from 'src/common/Decorator/Public.decorator';
 
-@Controller('auth')
+@Controller('client/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @HttpCode(HttpStatus.CREATED)
-  @Post('local/signup')
-  async signupLocal(@Body() signupdto: SignupDto, @Res() res): Promise<User> {
+  @Public()
+  @Post('signup')
+  @HttpCode(200)
+  @UsePipes()
+  async login(@Body() signupdata: SignupDto): Promise<HttpResponse> {
     try {
-      const response = await this.authService.SignupUser(signupdto, res);
+      const data = await this.authService.SignupUser(signupdata);
 
-      return res.json({
-        message: 'User created successfully',
-        response,
+      return new HttpResponse({
+        message: 'User successfully signed up!!',
+        data,
       });
     } catch (error) {
       console.log(error);
@@ -42,7 +46,7 @@ export class AuthController {
   }
 
   @HttpCode(HttpStatus.OK)
-  @Post('local/login')
+  @Post('login')
   async singinLocal(@Body() logindto: LoginDto, @Res() res): Promise<Tokens> {
     try {
       const { accessToken, refreshToken } = await this.authService.SigninUser(
@@ -53,9 +57,12 @@ export class AuthController {
         .cookie('access_token', accessToken)
         .cookie('refresh_token', refreshToken)
         .json({
+          success: true,
           message: 'Login successful',
-          accessToken,
-          refreshToken,
+          data: {
+            accessToken,
+            refreshToken,
+          },
         });
     } catch (error) {
       console.log(error);
