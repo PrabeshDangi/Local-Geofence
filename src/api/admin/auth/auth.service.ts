@@ -7,45 +7,22 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { LoginDto } from './Dto/login.dto';
-import { SignupDto } from './Dto/register.dto';
+import { EmailService } from 'src/global/email/email.service';
+import { Request, Response } from 'express';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly emailService: EmailService,
   ) {}
-
-  async SignupUser(signupdto: SignupDto) {
-    const { name, email, password } = signupdto;
-
-    const isUserAvailable = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (isUserAvailable) {
-      throw new BadRequestException('Email already registered!!');
-    }
-
-    const hashedpassword = await this.hashPassword(password);
-
-    const newuser = await this.prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedpassword,
-        role: 'admin',
-      },
-    });
-
-    return newuser;
-  }
 
   async SigninUser(signindto: LoginDto, res: Response) {
     const { email, password } = signindto;
 
     const userAvailable = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email, isEmailVerified: true },
     });
 
     if (!userAvailable) {
@@ -74,6 +51,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      role: userAvailable.role,
     };
   }
 
@@ -88,7 +66,42 @@ export class AuthService {
     }
   }
 
-  async refreshToken(req) {
+  async verifyEmail(token: string, req: Request, res: Response) {
+    if (!token) {
+      throw new BadRequestException('Token not found!!');
+    }
+
+    try {
+      const decodedInfo = await this.jwt.verify(token, {
+        secret: process.env.JWT_SECRET,
+      });
+
+      const user = await this.prisma.user.findUnique({
+        where: { email: decodedInfo.email },
+      });
+
+      if (!user) {
+        throw new BadRequestException('User not found!!');
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+        },
+      });
+
+      res.clearCookie('email_verification_token').json({
+        success: true,
+        message: 'Email verifies successfully!!',
+      });
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException('Invalid or expired verification token!!');
+    }
+  }
+
+  async refreshToken(req: Request) {
     const incomingrefreshToken = req.cookies.refresh_token;
 
     if (!incomingrefreshToken) {

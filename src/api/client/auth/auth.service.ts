@@ -8,12 +8,15 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { LoginDto } from './Dto/login.dto';
 import { SignupDto } from './Dto/register.dto';
+import { EmailService } from 'src/global/email/email.service';
+import { Request, Response } from 'express';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   async SignupUser(signupdto: SignupDto) {
@@ -34,9 +37,18 @@ export class AuthService {
         name,
         email,
         password: hashedpassword,
-        role: 'user',
+        role: signupdto.role || 'user',
       },
     });
+
+    const verificationToken = await this.generateEmailVerificationToken(
+      newuser.email,
+    );
+
+    await this.emailService.sendVerificationEmail(
+      newuser.email,
+      verificationToken,
+    );
 
     return newuser;
   }
@@ -61,7 +73,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (userAvailable.role != 'user') {
+    if (userAvailable.role != 'admin') {
       throw new UnauthorizedException('Permission denied!!');
     }
 
@@ -88,7 +100,42 @@ export class AuthService {
     }
   }
 
-  async refreshToken(req) {
+  async verifyEmail(token: string, req: Request, res: Response) {
+    if (!token) {
+      throw new BadRequestException('Token not found!!');
+    }
+
+    try {
+      const decodedInfo = await this.jwt.verify(token, {
+        secret: process.env.JWT_SECRET,
+      });
+
+      const user = await this.prisma.user.findUnique({
+        where: { email: decodedInfo.email },
+      });
+
+      if (!user) {
+        throw new BadRequestException('User not found!!');
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+        },
+      });
+
+      res.clearCookie('email_verification_token').json({
+        success: true,
+        message: 'Email verifies successfully!!',
+      });
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException('Invalid or expired verification token!!');
+    }
+  }
+
+  async refreshToken(req:Request) {
     const incomingrefreshToken = req.cookies.refresh_token;
 
     if (!incomingrefreshToken) {
@@ -152,5 +199,12 @@ export class AuthService {
       secret: process.env.REFRESH_SECRET,
       expiresIn: process.env.REFRESH_EXPIRY,
     });
+  }
+
+  private async generateEmailVerificationToken(email: string) {
+    return this.jwt.sign(
+      { email },
+      { secret: process.env.JWT_SECRET, expiresIn: '2m' },
+    );
   }
 }

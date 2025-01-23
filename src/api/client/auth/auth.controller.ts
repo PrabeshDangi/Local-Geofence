@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -23,7 +24,7 @@ import { SignupDto } from './Dto/register.dto';
 import { Tokens } from './Types/index';
 import { Public } from 'src/common/Decorator/Public.decorator';
 
-@Controller('client/auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -31,7 +32,7 @@ export class AuthController {
   @Post('signup')
   @HttpCode(200)
   @UsePipes()
-  async login(@Body() signupdata: SignupDto): Promise<HttpResponse> {
+  async signup(@Body() signupdata: SignupDto): Promise<HttpResponse> {
     try {
       const data = await this.authService.SignupUser(signupdata);
 
@@ -47,7 +48,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async singinLocal(@Body() logindto: LoginDto, @Res() res): Promise<Tokens> {
+  async singin(@Body() logindto: LoginDto, @Res() res): Promise<Tokens> {
     try {
       const { accessToken, refreshToken } = await this.authService.SigninUser(
         logindto,
@@ -83,6 +84,12 @@ export class AuthController {
     } catch (error) {
       throw new Error('Logout failed');
     }
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('verify-email')
+  async verifyEmail(@Query('token') token: string, @Req() req, @Res() res) {
+    return this.authService.verifyEmail(token, req, res);
   }
 
   @HttpCode(HttpStatus.OK)

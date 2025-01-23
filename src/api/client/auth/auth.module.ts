@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AtStrategy } from './Strategies/at.strategies';
 import { RtStrategy } from './Strategies/rt.strategies';
 import { PrismaService } from 'src/global/prisma/prisma.service';
+import { EmailModule } from 'src/global/email/email.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PrismaService } from 'src/global/prisma/prisma.service';
       secret: process.env.REFRESH_SECRET,
       signOptions: { expiresIn: process.env.REFTOKEN_TTL },
     }),
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AtStrategy, RtStrategy, PrismaService],

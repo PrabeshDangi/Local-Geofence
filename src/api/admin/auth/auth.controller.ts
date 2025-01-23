@@ -4,55 +4,32 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
   accessTokenOption,
   refreshTokenOption,
 } from 'src/common/Constants/cookie.option';
-import { HttpResponse } from 'src/common/utils/http-response.util';
 import { RtGuard } from 'src/common/Guard/rt.guard';
 import { JwtGuard } from 'src/common/Guard/access.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './Dto/login.dto';
-import { SignupDto } from './Dto/register.dto';
 import { Tokens } from './Types/index';
-import { Public } from 'src/common/Decorator/Public.decorator';
 
-@Controller('admin/auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Public()
-  @Post('signup')
-  @HttpCode(200)
-  @UsePipes()
-  async login(@Body() signupdata: SignupDto): Promise<HttpResponse> {
-    try {
-      const data = await this.authService.SignupUser(signupdata);
-
-      return new HttpResponse({
-        message: 'User successfully signed up!!',
-        data,
-      });
-    } catch (error) {
-      console.log(error);
-      throw error;
-    }
-  }
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async singinLocal(@Body() logindto: LoginDto, @Res() res): Promise<Tokens> {
     try {
-      const { accessToken, refreshToken } = await this.authService.SigninUser(
-        logindto,
-        res,
-      );
+      const { accessToken, refreshToken, role } =
+        await this.authService.SigninUser(logindto, res);
       return res
         .cookie('access_token', accessToken)
         .cookie('refresh_token', refreshToken)
@@ -62,6 +39,7 @@ export class AuthController {
           data: {
             accessToken,
             refreshToken,
+            role,
           },
         });
     } catch (error) {
@@ -83,6 +61,12 @@ export class AuthController {
     } catch (error) {
       throw new Error('Logout failed');
     }
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('verify-email')
+  async verifyEmail(@Query('token') token: string, @Req() req, @Res() res) {
+    return this.authService.verifyEmail(token, req, res);
   }
 
   @HttpCode(HttpStatus.OK)
