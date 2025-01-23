@@ -22,7 +22,7 @@ export class AuthService {
     const { email, password } = signindto;
 
     const userAvailable = await this.prisma.user.findUnique({
-      where: { email, isEmailVerified: true },
+      where: { email },
     });
 
     if (!userAvailable) {
@@ -36,10 +36,6 @@ export class AuthService {
 
     if (!isPasswordCorrect) {
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (userAvailable.role != 'admin') {
-      throw new UnauthorizedException('Permission denied!!');
     }
 
     const { accessToken, refreshToken } = await this.signTokens({

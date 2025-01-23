@@ -12,16 +12,23 @@ enum Role {
   user
 }
 
+enum deviceType {
+  android
+  apple
+}
+
 model User {
-  id              Int      @id @default(autoincrement())
+  id              Int         @id @default(autoincrement())
   name            String
-  email           String   @unique
+  email           String      @unique
   password        String
-  role            Role     @default(user)
-  deviceId        String?  @map("device_id")
-  isEmailVerified Boolean  @default(false) @map("is_email_verified")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  role            Role        @default(user)
+  isEmailVerified Boolean     @default(false) @map("is_email_verified")
+  deviceId        String?     @map("device_id")
+  deviceToken     String?     @map("device_token")
+  deviceType      deviceType? @map("device_type")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
 }
 
 model Geofence {

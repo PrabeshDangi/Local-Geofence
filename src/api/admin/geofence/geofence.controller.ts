@@ -10,12 +10,14 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { Role } from '../../common/Constants/enums/role.enum';
-import { Roles } from '../../common/Decorator/Role.decorator';
-import { JwtGuard } from '../../common/Guard/access.guard';
+
+
 import { createGeofenceDTO } from './dto/addgeofence.dto';
 import { updateGeoFenceDTO } from './dto/updategeofence.dto';
 import { GeofenceService } from './geofence.service';
+import { Role } from 'src/common/Constants/enums/role.enum';
+import { JwtGuard } from 'src/common/Guard/access.guard';
+import { Roles } from 'src/common/Decorator/Role.decorator';
 
 @Controller('geofence')
 export class GeofenceController {

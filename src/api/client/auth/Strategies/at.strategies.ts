@@ -6,7 +6,7 @@ import { PrismaService } from 'src/global/prisma/prisma.service';
 
 @Injectable()
 export class AtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private prisma: PrismaService) {
+  constructor(private readonly prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         AtStrategy.extractJWT,

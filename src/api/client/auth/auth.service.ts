@@ -73,10 +73,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (userAvailable.role != 'admin') {
-      throw new UnauthorizedException('Permission denied!!');
-    }
-
     const { accessToken, refreshToken } = await this.signTokens({
       id: userAvailable.id,
       name: userAvailable.name,
@@ -135,7 +131,7 @@ export class AuthService {
     }
   }
 
-  async refreshToken(req:Request) {
+  async refreshToken(req: Request) {
     const incomingrefreshToken = req.cookies.refresh_token;
 
     if (!incomingrefreshToken) {
