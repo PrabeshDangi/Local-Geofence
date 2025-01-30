@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -8,27 +9,50 @@ import {
   Req,
   Res,
   UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import { Response } from 'express';
 import {
   accessTokenOption,
   refreshTokenOption,
 } from 'src/common/Constants/cookie.option';
-import { RtGuard } from 'src/common/Guard/rt.guard';
+import { HttpResponse } from 'src/common/utils/http-response.util';
+import { RtGuard } from 'src/common/Guard/refresh.guard';
 import { JwtGuard } from 'src/common/Guard/access.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './Dto/login.dto';
+import { SignupDto } from './Dto/register.dto';
 import { Tokens } from './Types/index';
+import { Public } from 'src/common/Decorator/Public.decorator';
+import { ChangePasswordDto } from './Dto/changePassword.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
+  @Post('signup')
+  @HttpCode(200)
+  @UsePipes()
+  async signup(@Body() signupdata: SignupDto): Promise<HttpResponse> {
+    try {
+      const data = await this.authService.SignupUser(signupdata);
+
+      return new HttpResponse({
+        message: 'User successfully signed up!!',
+        data,
+      });
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
+  }
+
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async singinLocal(@Body() logindto: LoginDto, @Res() res): Promise<Tokens> {
+  async singin(@Body() logindto: LoginDto, @Res() res): Promise<Tokens> {
     try {
-      const { accessToken, refreshToken, role } =
+      const { accessToken, refreshToken, userAvailable } =
         await this.authService.SigninUser(logindto, res);
       return res
         .cookie('access_token', accessToken)
@@ -39,7 +63,7 @@ export class AuthController {
           data: {
             accessToken,
             refreshToken,
-            role,
+            user: userAvailable,
           },
         });
     } catch (error) {
@@ -71,8 +95,9 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @UseGuards(RtGuard)
-  @Post('/token-refresh')
+  @Post('token-refresh')
   async refreshToken(@Req() req, @Res() res) {
+    
     const tokens = await this.authService.refreshToken(req);
 
     res
@@ -83,5 +108,39 @@ export class AuthController {
         refreshtoken: tokens.refreshToken,
         accesstoken: tokens.accessToken,
       });
+  }
+
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @Get('profile')
+  async getProfile(@Req() req): Promise<HttpResponse> {
+    try {
+      const user = await this.authService.getProfile(req.user.id);
+
+      return new HttpResponse({
+        message: 'Profile fetched successfully!!',
+        data: user,
+      });
+    } catch (error) {
+      console.log(error);
+      throw new Error(error);
+    }
+  }
+
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  async changePassword(
+    @Req() req,
+    @Body() changepassworddto: ChangePasswordDto,
+  ) {
+    const response = await this.authService.changePassword(
+      req.user.id,
+      changepassworddto,
+    );
+    return new HttpResponse({
+      message: 'Password changed successfully!!',
+      data: response,
+    });
   }
 }

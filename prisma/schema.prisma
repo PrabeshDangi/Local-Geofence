@@ -27,17 +27,34 @@ model User {
   deviceId        String?     @map("device_id")
   deviceToken     String?     @map("device_token")
   deviceType      deviceType? @map("device_type")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 }
 
 model Geofence {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   name        String
   description String
   longitude   Float
   latitude    Float
   radius      Float
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  archive     Boolean @default(false)
+
+  incidentOn DateTime @map("incident_on")
+  reportedOn DateTime @map("reported_on")
+  verified   Boolean  @default(false)
+  dataSource String   @map("data_source")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+}
+
+model notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 }

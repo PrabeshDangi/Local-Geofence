@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import axios from 'axios';
@@ -7,15 +7,14 @@ import { subDays } from 'date-fns';
 @Injectable()
 export class IncidentsService {
   private readonly logger = new Logger(IncidentsService.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async handleDailyIncidentRefresh() {
+  @Cron(CronExpression.EVERY_12_HOURS)
+  async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
     } catch (error) {
-      this.logger.error('Failed to refresh incident data', error);
+      this.logger.error('Failed to refresh incident/geofence data', error);
     }
   }
 
@@ -23,33 +22,22 @@ export class IncidentsService {
     const fiveDaysAgo = subDays(new Date(), 5);
 
     await this.prisma.$transaction(async (tx) => {
-      // Delete old incidents
-      await tx.incident.deleteMany({
-        where: {
-          incidentOn: {
-            lt: fiveDaysAgo,
-          },
-        },
-      });
+      await tx.geofence.deleteMany();
 
-      // Fetch new incidents
-      const newIncidents = await this.fetchRecentIncidents();
+      const newIncidents = await this.fetchRecentIncidents(fiveDaysAgo);
 
-      // Insert new incidents
       if (newIncidents.length > 0) {
-        await tx.incident.createMany({
+        await tx.geofence.createMany({
           data: newIncidents.map((incident) => ({
-            title: incident.title,
-            titleNe: incident.titleNe,
-            coordinates: incident.point
-              ? JSON.stringify(incident.point.coordinates)
-              : null,
+            name: incident.title,
+            description: incident.description || '', // Handle if description is null
+            longitude: incident.coordinates[0],
+            latitude: incident.coordinates[1],
             incidentOn: new Date(incident.incidentOn),
             reportedOn: new Date(incident.reportedOn),
-            hazard: incident.hazard,
-            loss: incident.loss,
             verified: incident.verified,
             dataSource: incident.dataSource,
+            radius: 1000,
           })),
           skipDuplicates: true,
         });
@@ -57,13 +45,13 @@ export class IncidentsService {
     });
   }
 
-  async fetchRecentIncidents() {
+  async fetchRecentIncidents(fiveDaysAgo: Date) {
     try {
       const response = await axios.get(
         'https://bipadportal.gov.np/api/v1/incident/',
         {
           params: {
-            incident_on__gt: subDays(new Date(), 5).toISOString(),
+            incident_on__gt: fiveDaysAgo.toISOString(),
             incident_on__lt: new Date().toISOString(),
             ordering: '-incident_on',
             limit: -1,
@@ -72,7 +60,15 @@ export class IncidentsService {
         },
       );
 
-      return response.data;
+      return response.data.results.map((incident) => ({
+        title: incident.title,
+        description: incident.titleNe,
+        coordinates: incident.point?.coordinates || [0, 0], // Default to [0, 0] if coordinates are missing
+        incidentOn: incident.incidentOn,
+        reportedOn: incident.reportedOn,
+        verified: incident.verified,
+        dataSource: incident.dataSource,
+      }));
     } catch (error) {
       this.logger.error('Failed to fetch incidents', error);
       return [];
@@ -81,8 +77,31 @@ export class IncidentsService {
 
   // Additional methods for incident management
   async getAllIncidents() {
-    return this.prisma.incident.findMany({
+    return this.prisma.geofence.findMany({
       orderBy: { incidentOn: 'desc' },
     });
+  }
+
+  async getIncidentById(id: number) {
+    const incident = await this.prisma.geofence.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        longitude: true,
+        latitude: true,
+        incidentOn: true,
+        reportedOn: true,
+        verified: true,
+        dataSource: true,
+      },
+    });
+
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+
+    return incident;
   }
 }

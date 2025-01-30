@@ -6,7 +6,7 @@ import { PrismaService } from 'src/global/prisma/prisma.service';
 
 @Injectable()
 export class AtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private prisma: PrismaService) {
+  constructor(private readonly prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         AtStrategy.extractJWT,
@@ -23,12 +23,6 @@ export class AtStrategy extends PassportStrategy(Strategy, 'jwt') {
       return null;
     }
 
-    // console.log(tokenFromCookie);
-
-    // console.log('J payo tei');
-
-    // console.log(tokenFromHeader);
-
     return tokenFromCookie || tokenFromHeader;
   }
 
@@ -38,15 +32,13 @@ export class AtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
+      where: { id: payload.id },
       select: { id: true, email: true, role: true },
     });
 
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-
-    //console.log(user);
 
     return user;
   }

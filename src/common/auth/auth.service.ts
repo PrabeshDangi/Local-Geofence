@@ -7,8 +7,10 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { LoginDto } from './Dto/login.dto';
+import { SignupDto } from './Dto/register.dto';
 import { EmailService } from 'src/global/email/email.service';
 import { Request, Response } from 'express';
+import { ChangePasswordDto } from './Dto/changePassword.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +19,40 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly emailService: EmailService,
   ) {}
+
+  async SignupUser(signupdto: SignupDto) {
+    const { name, email, password } = signupdto;
+
+    const isUserAvailable = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (isUserAvailable) {
+      throw new BadRequestException('Email already registered!!');
+    }
+
+    const hashedpassword = await this.hashPassword(password);
+
+    const newuser = await this.prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedpassword,
+        role: 'user',
+      },
+    });
+
+    const verificationToken = await this.generateEmailVerificationToken(
+      newuser.email,
+    );
+
+    await this.emailService.sendVerificationEmail(
+      newuser.email,
+      verificationToken,
+    );
+
+    return newuser;
+  }
 
   async SigninUser(signindto: LoginDto, res: Response) {
     const { email, password } = signindto;
@@ -44,10 +80,19 @@ export class AuthService {
       role: userAvailable.role,
     });
 
+    await this.prisma.user.update({
+      where: { id: userAvailable.id },
+      data: {
+        deviceId: signindto.deviceId,
+        deviceType: signindto.deviceType,
+        deviceToken: signindto.deviceToken,
+      },
+    });
+
     return {
       accessToken,
       refreshToken,
-      role: userAvailable.role,
+      userAvailable,
     };
   }
 
@@ -132,6 +177,66 @@ export class AuthService {
     }
   }
 
+  async getProfile(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isEmailVerified: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found!!');
+    }
+
+    return user;
+  }
+
+  async changePassword(id: number, changepassworddto: ChangePasswordDto) {
+    const { oldPassword, newPassword } = changepassworddto;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found!!');
+    }
+
+    const isPasswordCorrect = await this.checkPassword(
+      oldPassword,
+      user.password,
+    );
+
+    if (!isPasswordCorrect) {
+      throw new BadRequestException('Old password is incorrect!!');
+    }
+
+    const hashedPassword = await this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isEmailVerified: true,
+      },
+    });
+  }
+
   private async hashPassword(password: string) {
     const saltRound = 10;
     return await bcrypt.hash(password, saltRound);
@@ -161,5 +266,12 @@ export class AuthService {
       secret: process.env.REFRESH_SECRET,
       expiresIn: process.env.REFRESH_EXPIRY,
     });
+  }
+
+  private async generateEmailVerificationToken(email: string) {
+    return this.jwt.sign(
+      { email },
+      { secret: process.env.JWT_SECRET, expiresIn: '2m' },
+    );
   }
 }

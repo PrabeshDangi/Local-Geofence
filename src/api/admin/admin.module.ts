@@ -1,10 +1,18 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from './auth/auth.module';
 import { GeofenceModule } from './geofence/geofence.module';
+import { RouterModule } from '@nestjs/core';
 
 @Module({
-      imports: [AuthModule, GeofenceModule],
-      controllers: [],
-      providers: [],
+  imports: [
+    GeofenceModule,
+    RouterModule.register([
+      {
+        path: 'admin',
+        module: GeofenceModule,
+      },
+    ]),
+  ],
+  controllers: [],
+  providers: [],
 })
 export class AdminModule {}
