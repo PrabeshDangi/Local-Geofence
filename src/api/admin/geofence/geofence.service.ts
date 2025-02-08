@@ -1,12 +1,7 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/global/prisma/prisma.service';
-import { Request } from 'express';
 import { Geofence } from '@prisma/client';
-import { updateGeoFenceDTO } from './dto/updategeofence.dto';
+import { UpdateGeoFenceDTO } from './dto/updategeofence.dto';
 
 @Injectable()
 export class GeofenceService {
@@ -14,15 +9,9 @@ export class GeofenceService {
 
   async updateGeofence(
     id: number,
-    updategeofencedto: updateGeoFenceDTO,
-    req: Request,
+    updategeofencedto: UpdateGeoFenceDTO,
   ): Promise<Geofence> {
     const { name, description, radius } = updategeofencedto;
-    const user = req.body as { id: number; email: string };
-
-    if (!user) {
-      throw new ForbiddenException('User not authorized!!');
-    }
 
     const geoFenceAvailable = await this.prisma.geofence.findUnique({
       where: { id },
@@ -44,13 +33,7 @@ export class GeofenceService {
     return updatedGeofence;
   }
 
-  async deleteGeofence(id: number, req: Request): Promise<unknown> {
-    const user = req.body as { id: number; email: string };
-
-    if (!user) {
-      throw new ForbiddenException('User not authorized!!');
-    }
-
+  async deleteGeofence(id: number): Promise<unknown> {
     const geoFenceAvailable = await this.prisma.geofence.findUnique({
       where: { id },
     });
@@ -64,5 +47,26 @@ export class GeofenceService {
     });
 
     return { message: 'Geofence deleted successfully!!' };
+  }
+
+  async archiveGeofence(id: number, archive: boolean) {
+    const geoFenceAvailable = await this.prisma.geofence.findUnique({
+      where: { id },
+    });
+
+    if (!geoFenceAvailable) {
+      throw new NotFoundException('Geofence of given id not found!!');
+    }
+
+    await this.prisma.geofence.update({
+      where: { id },
+      data: {
+        archive: archive,
+      },
+    });
+
+    return {
+      message: `Geofence archive staus changed to ${archive} successfully!!`,
+    };
   }
 }

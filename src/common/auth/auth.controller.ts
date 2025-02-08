@@ -20,27 +20,23 @@ import { HttpResponse } from 'src/common/utils/http-response.util';
 import { RtGuard } from 'src/common/Guard/refresh.guard';
 import { JwtGuard } from 'src/common/Guard/access.guard';
 import { AuthService } from './auth.service';
-import { LoginDto } from './Dto/login.dto';
-import { SignupDto } from './Dto/register.dto';
+import { ChangePasswordDto, LoginDto, RefreshTokenDto, SignupDto } from './Dto/login.dto';
 import { Tokens } from './Types/index';
-import { Public } from 'src/common/Decorator/Public.decorator';
-import { ChangePasswordDto } from './Dto/changePassword.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Public()
   @Post('signup')
   @HttpCode(200)
   @UsePipes()
   async signup(@Body() signupdata: SignupDto): Promise<HttpResponse> {
     try {
-      const data = await this.authService.SignupUser(signupdata);
+      await this.authService.SignupUser(signupdata);
 
       return new HttpResponse({
-        message: 'User successfully signed up!!',
-        data,
+        message:
+          'User successfully signed up and verification email sent successfully!!',
       });
     } catch (error) {
       console.log(error);
@@ -63,7 +59,7 @@ export class AuthController {
           data: {
             accessToken,
             refreshToken,
-            user: userAvailable,
+            role: userAvailable.role,
           },
         });
     } catch (error) {
@@ -96,9 +92,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RtGuard)
   @Post('token-refresh')
-  async refreshToken(@Req() req, @Res() res) {
-    
-    const tokens = await this.authService.refreshToken(req);
+  async refreshToken(@Body() data: RefreshTokenDto, @Res() res) {
+    const tokens = await this.authService.refreshToken(data.refreshToken);
 
     res
       .cookie('refresh_token', tokens.refreshToken, refreshTokenOption)
@@ -134,13 +129,9 @@ export class AuthController {
     @Req() req,
     @Body() changepassworddto: ChangePasswordDto,
   ) {
-    const response = await this.authService.changePassword(
-      req.user.id,
-      changepassworddto,
-    );
+    await this.authService.changePassword(req.user.id, changepassworddto);
     return new HttpResponse({
       message: 'Password changed successfully!!',
-      data: response,
     });
   }
 }

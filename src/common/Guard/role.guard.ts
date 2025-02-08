@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  ExecutionContext,
-  CanActivate,
-} from '@nestjs/common';
+import { Injectable, ExecutionContext, CanActivate } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PUBLIC_KEY } from '../Decorator/Public.decorator';
 import { ROLES_KEY } from '../Decorator/Role.decorator';
@@ -21,13 +17,11 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    // Get the required roles from the route metadata
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    // If no roles are required, allow access
     if (!requiredRoles) {
       return true;
     }
@@ -39,7 +33,6 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // Allow access if user role is in the required roles
     return requiredRoles.includes(user.role);
   }
 }

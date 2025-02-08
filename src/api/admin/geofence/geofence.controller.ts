@@ -5,12 +5,20 @@ import {
   Param,
   ParseIntPipe,
   Patch,
-  Req,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 
-import { updateGeoFenceDTO } from './dto/updategeofence.dto';
+import { UpdateGeoFenceDTO } from './dto/updategeofence.dto';
 import { GeofenceService } from './geofence.service';
+import { JwtGuard } from 'src/common/Guard/access.guard';
+import { RolesGuard } from 'src/common/Guard/role.guard';
+import { Roles } from 'src/common/Decorator/Role.decorator';
+import { Role } from 'src/common/Constants/enums/role.enum';
 
+@UseGuards(JwtGuard, RolesGuard)
+@Roles(Role.Admin)
 @Controller('geofence')
 export class GeofenceController {
   constructor(private readonly geofenceService: GeofenceService) {}
@@ -18,14 +26,12 @@ export class GeofenceController {
   @Patch(':id')
   async updateGeofence(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updategeofencedto: updateGeoFenceDTO,
-    @Req() req,
+    @Body() updategeofencedto: UpdateGeoFenceDTO,
   ) {
     try {
       const result = await this.geofenceService.updateGeofence(
         id,
         updategeofencedto,
-        req,
       );
       return result;
     } catch (error) {
@@ -34,12 +40,28 @@ export class GeofenceController {
   }
 
   @Delete(':id')
-  async deleteGeofence(@Param('id', ParseIntPipe) id: number, @Req() req) {
+  async deleteGeofence(@Param('id', ParseIntPipe) id: number) {
     try {
-      const result = await this.geofenceService.deleteGeofence(id, req);
+      const result = await this.geofenceService.deleteGeofence(id);
       return result;
     } catch (error) {
       throw new Error(error);
+    }
+  }
+
+  @Post(':id')
+  async archiveGeofence(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('archive') archiveQuery: string,
+  ) {
+    try {
+      const archive = archiveQuery === 'true';
+
+      const result = await this.geofenceService.archiveGeofence(id, archive);
+
+      return result;
+    } catch (error) {
+      throw new Error(error.message);
     }
   }
 }

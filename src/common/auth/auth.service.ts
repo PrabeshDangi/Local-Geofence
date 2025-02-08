@@ -6,11 +6,13 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/global/prisma/prisma.service';
-import { LoginDto } from './Dto/login.dto';
-import { SignupDto } from './Dto/register.dto';
+import { ChangePasswordDto, LoginDto, SignupDto } from './Dto/login.dto';
 import { EmailService } from 'src/global/email/email.service';
 import { Request, Response } from 'express';
-import { ChangePasswordDto } from './Dto/changePassword.dto';
+import {
+  buildErrorTemplate,
+  buildSuccessTemplate,
+} from 'src/global/email/Templates/emailVerification.template';
 
 @Injectable()
 export class AuthService {
@@ -51,18 +53,23 @@ export class AuthService {
       verificationToken,
     );
 
-    return newuser;
+    return;
   }
 
   async SigninUser(signindto: LoginDto, res: Response) {
     const { email, password } = signindto;
 
     const userAvailable = await this.prisma.user.findUnique({
-      where: { email },
+      where: {
+        email,
+        //isEmailVerified: true
+      },
     });
 
     if (!userAvailable) {
-      throw new BadRequestException('Email not registered!!');
+      throw new BadRequestException(
+        'This email is probably not registered or verified!!',
+      );
     }
 
     const isPasswordCorrect = await this.checkPassword(
@@ -92,7 +99,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      userAvailable,
+      userAvailable
     };
   }
 
@@ -132,25 +139,29 @@ export class AuthService {
         },
       });
 
-      res.clearCookie('email_verification_token').json({
+      const successMessage = await buildSuccessTemplate();
+      res.send(successMessage);
+
+      res.json({
         success: true,
-        message: 'Email verifies successfully!!',
+        message: 'Email verified successfully!!',
       });
     } catch (error) {
-      console.log(error);
+      const errorMessage = await buildErrorTemplate();
+      res.send(errorMessage);
       throw new BadRequestException('Invalid or expired verification token!!');
     }
   }
 
-  async refreshToken(req: Request) {
-    const incomingrefreshToken = req.cookies.refresh_token;
+  async refreshToken(token:string) {
+   
 
-    if (!incomingrefreshToken) {
+    if (!token) {
       throw new UnauthorizedException('Refresh token not found');
     }
 
     try {
-      const decodedToken = await this.jwt.verify(incomingrefreshToken, {
+      const decodedToken = await this.jwt.verify(token, {
         secret: process.env.REFRESH_SECRET,
       });
 
@@ -271,7 +282,7 @@ export class AuthService {
   private async generateEmailVerificationToken(email: string) {
     return this.jwt.sign(
       { email },
-      { secret: process.env.JWT_SECRET, expiresIn: '2m' },
+      { secret: process.env.JWT_SECRET, expiresIn: '5m' },
     );
   }
 }
