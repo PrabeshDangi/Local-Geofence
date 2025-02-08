@@ -6,11 +6,16 @@ async function script() {
   try {
     const salt = bcrypt.genSaltSync(10);
     const hasedPassword = await bcrypt.hash('Admin123', salt);
-    await prisma.user.deleteMany({
-      where: {
-        role: 'admin',
-      }
-    });
+
+    const users = await prisma.user.findMany({});
+
+    if (users.length > 0) {
+      await prisma.user.deleteMany({
+        where: {
+          role: 'admin',
+        },
+      });
+    }
 
     await prisma.user.create({
       data: {

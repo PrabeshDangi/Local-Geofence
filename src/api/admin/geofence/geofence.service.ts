@@ -26,7 +26,7 @@ export class GeofenceService {
       data: {
         name,
         description,
-        radius,
+        radiusPrimary: radius,
       },
     });
 
