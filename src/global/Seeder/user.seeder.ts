@@ -23,6 +23,7 @@ async function script() {
         password: hasedPassword,
         email: 'admin@gmail.com',
         role: 'admin',
+        isEmailVerified: true,
       },
     });
     console.log('Admin data seeded successfully!!');

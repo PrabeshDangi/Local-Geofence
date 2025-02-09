@@ -132,8 +132,8 @@ export async function buildSuccessTemplate() {
             <div class="content">
                 <h2>Congratulations!</h2>
                 <p>Your email address has been successfully verified. You can now access your account and enjoy all our services.</p>
-                <p>Please proceed to the login page</p>
                 <p>Thank you for registering with us!</p>
+                <p>Please proceed to the login page!!</p>
             </div>
             <div class="footer">
                 <p>&copy; 2024 Local-Geofence. All rights reserved.</p>

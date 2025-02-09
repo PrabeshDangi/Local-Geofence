@@ -10,10 +10,11 @@ export class SchedularService {
   private readonly logger = new Logger(IncidentsService.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
+      this.logger.log('Incident/geofence data refreshed');
     } catch (error) {
       this.logger.error('Failed to refresh incident/geofence data', error);
     }
@@ -26,7 +27,7 @@ export class SchedularService {
       await tx.geofence.deleteMany({
         where: {
           incidentOn: {
-            lt: fiveDaysAgo, 
+            lt: fiveDaysAgo,
           },
         },
       });
@@ -44,9 +45,10 @@ export class SchedularService {
             reportedOn: new Date(incident.reportedOn),
             verified: incident.verified,
             dataSource: incident.dataSource,
-            radius: 1000,
+            radiusPrimary: 1000,
+            radiusSecondary: 2000,
           })),
-          skipDuplicates: true, 
+          skipDuplicates: true,
         });
       }
     });

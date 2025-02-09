@@ -42,14 +42,12 @@ export class NotificationService {
     }
   }
 
-  // Send FCM Notification using Firebase Admin SDK
   private async sendFCMNotification(
     deviceToken: string,
     title: string,
     message: string,
   ) {
     try {
-      // Send notification via Firebase Cloud Messaging (FCM)
       const response = await admin.messaging().send({
         token: deviceToken,
         notification: {

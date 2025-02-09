@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { CalculationModule } from './calculation/calculation.module';
 
 @Module({
-  imports: [],
+  imports: [CalculationModule],
   controllers: [],
   providers: [],
 })

@@ -28,6 +28,9 @@ model User {
   deviceToken     String?     @map("device_token")
   deviceType      deviceType? @map("device_type")
 
+  userLongitude Float? @map("user_longitude")
+  userLatitude  Float? @map("user_latitude")
+
   notifications notification[] @relation(name: "User_notifications")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -40,7 +43,7 @@ model Geofence {
   description     String
   longitude       Float
   latitude        Float
-  radiusSecondary Float  @default(1000) @map("radius_secondary")
+  radiusSecondary Float   @default(1000) @map("radius_secondary")
   radiusPrimary   Float   @default(1000) @map("radius_primary")
   archive         Boolean @default(false)
 
@@ -51,6 +54,8 @@ model Geofence {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([incidentOn, longitude, latitude])
 }
 
 model notification {
