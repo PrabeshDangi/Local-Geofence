@@ -9,13 +9,13 @@ export class CalculationService {
   async getNearByIncidents(data: QueryInputDto): Promise<any> {
     const lat = Number(data.lat);
     const lng = Number(data.lng);
-  
+
     if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
       throw new HttpException('Invalid latitude or longitude', 400);
     }
-    
+
     const geofences = await this.prisma.geofence.findMany({});
-    
+
     const nearbyGeofences = geofences.filter((geofence) => {
       const distance = this.haversineDistance(
         lat,
@@ -23,10 +23,10 @@ export class CalculationService {
         geofence.latitude,
         geofence.longitude,
       );
-      
+
       return distance <= 100000;
     });
-  
+
     const sanitizedGeofences = nearbyGeofences.map((geofence) => {
       const distance = this.haversineDistance(
         lat,
@@ -34,22 +34,22 @@ export class CalculationService {
         geofence.latitude,
         geofence.longitude,
       );
-  
+
       return {
         id: geofence.id,
         name: geofence.name,
         description: geofence.description,
         latitude: geofence.latitude,
         longitude: geofence.longitude,
-        distance: parseFloat(distance.toFixed(2)), 
+        hazard: geofence.hazard,
+        distance: parseFloat(distance.toFixed(2)),
       };
     });
-  
+
     return {
       nearbyGeofences: sanitizedGeofences,
     };
   }
-  
 
   private haversineDistance(
     lat1: number,

@@ -8,6 +8,7 @@ import { PrismaService } from 'src/global/prisma/prisma.service';
 @Injectable()
 export class SchedularService {
   private readonly logger = new Logger(IncidentsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Cron(CronExpression.EVERY_12_HOURS)
@@ -23,6 +24,8 @@ export class SchedularService {
   async refreshIncidentData() {
     const fiveDaysAgo = subDays(new Date(), 5);
 
+    const allowedHazardCodes = [12, 10, 17, 11]; //Allowed incidents
+
     await this.prisma.$transaction(async (tx) => {
       await tx.geofence.deleteMany({
         where: {
@@ -32,7 +35,10 @@ export class SchedularService {
         },
       });
 
-      const newIncidents = await this.fetchRecentIncidents(fiveDaysAgo);
+      const newIncidents = await this.fetchRecentIncidents(
+        fiveDaysAgo,
+        allowedHazardCodes,
+      );
 
       if (newIncidents.length > 0) {
         await tx.geofence.createMany({
@@ -45,6 +51,7 @@ export class SchedularService {
             reportedOn: new Date(incident.reportedOn),
             verified: incident.verified,
             dataSource: incident.dataSource,
+            hazard: incident.hazard,
             radiusPrimary: 1000,
             radiusSecondary: 2000,
           })),
@@ -54,7 +61,7 @@ export class SchedularService {
     });
   }
 
-  async fetchRecentIncidents(fiveDaysAgo: Date) {
+  async fetchRecentIncidents(fiveDaysAgo: Date, allowedHazardCodes: number[]) {
     try {
       const response = await axios.get(
         'https://bipadportal.gov.np/api/v1/incident/',
@@ -69,15 +76,20 @@ export class SchedularService {
         },
       );
 
-      return response.data.results.map((incident) => ({
-        title: incident.title,
-        description: incident.titleNe,
-        coordinates: incident.point?.coordinates || [0, 0], // Default to [0, 0] if coordinates are missing
-        incidentOn: incident.incidentOn,
-        reportedOn: incident.reportedOn,
-        verified: incident.verified,
-        dataSource: incident.dataSource,
-      }));
+      const filteredIncidents = response.data.results
+        .filter((incident) => allowedHazardCodes.includes(incident.hazard))
+        .map((incident) => ({
+          title: incident.title,
+          description: incident.titleNe,
+          coordinates: incident.point?.coordinates || [0, 0], // Default to [0, 0] if coordinates are missing
+          incidentOn: incident.incidentOn,
+          reportedOn: incident.reportedOn,
+          verified: incident.verified,
+          dataSource: incident.dataSource,
+          hazard: incident.hazard,
+        }));
+
+      return filteredIncidents;
     } catch (error) {
       this.logger.error('Failed to fetch incidents', error);
       return [];

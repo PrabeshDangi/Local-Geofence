@@ -46,6 +46,7 @@ model Geofence {
   radiusSecondary Float   @default(1000) @map("radius_secondary")
   radiusPrimary   Float   @default(1000) @map("radius_primary")
   archive         Boolean @default(false)
+  hazard          Int
 
   incidentOn DateTime @map("incident_on")
   reportedOn DateTime @map("reported_on")
