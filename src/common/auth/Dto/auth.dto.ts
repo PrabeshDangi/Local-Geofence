@@ -5,6 +5,7 @@ import {
   Length,
   IsEnum,
   IsOptional,
+  IsNumber,
 } from 'class-validator';
 
 import { deviceType } from '@prisma/client';
@@ -65,4 +66,14 @@ export class RefreshTokenDto {
   @IsString()
   @IsNotEmpty()
   refreshToken: string;
+}
+
+export class UpdateUserLocationDto {
+  @IsNumber()
+  @IsNotEmpty()
+  long: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  lat: number;
 }

@@ -6,7 +6,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/global/prisma/prisma.service';
-import { ChangePasswordDto, LoginDto, SignupDto } from './Dto/login.dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  SignupDto,
+  UpdateUserLocationDto,
+} from './Dto/auth.dto';
 import { EmailService } from 'src/global/email/email.service';
 import { Request, Response } from 'express';
 import {
@@ -99,7 +104,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      userAvailable
+      userAvailable,
     };
   }
 
@@ -153,9 +158,7 @@ export class AuthService {
     }
   }
 
-  async refreshToken(token:string) {
-   
-
+  async refreshToken(token: string) {
     if (!token) {
       throw new UnauthorizedException('Refresh token not found');
     }
@@ -247,6 +250,28 @@ export class AuthService {
       },
     });
   }
+
+  async updateUserLocation(data: UpdateUserLocationDto, userId: number) {
+    const lat = data.lat;
+    const long = data.long;
+  
+    if (
+      Number.isFinite(lat) && lat >= -90 && lat <= 90 &&
+      Number.isFinite(long) && long >= -180 && long <= 180
+    ) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          userLatitude: lat,
+          userLongitude: long,
+        },
+      });
+      return;
+    } else {
+      throw new Error('Invalid latitude or longitude');
+    }
+  }
+  
 
   private async hashPassword(password: string) {
     const saltRound = 10;

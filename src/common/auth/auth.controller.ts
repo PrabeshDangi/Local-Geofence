@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Query,
   Req,
@@ -20,7 +21,13 @@ import { HttpResponse } from 'src/common/utils/http-response.util';
 import { RtGuard } from 'src/common/Guard/refresh.guard';
 import { JwtGuard } from 'src/common/Guard/access.guard';
 import { AuthService } from './auth.service';
-import { ChangePasswordDto, LoginDto, RefreshTokenDto, SignupDto } from './Dto/login.dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  RefreshTokenDto,
+  SignupDto,
+  UpdateUserLocationDto,
+} from './Dto/auth.dto';
 import { Tokens } from './Types/index';
 
 @Controller('auth')
@@ -132,6 +139,19 @@ export class AuthController {
     await this.authService.changePassword(req.user.id, changepassworddto);
     return new HttpResponse({
       message: 'Password changed successfully!!',
+    });
+  }
+
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @Patch('/user-location')
+  async updateUserLocation(
+    @Body() InputData: UpdateUserLocationDto,
+    @Req() req,
+  ) {
+    await this.authService.updateUserLocation(InputData, req.user.id);
+    return new HttpResponse({
+      message: 'User location updated successfully!!',
     });
   }
 }

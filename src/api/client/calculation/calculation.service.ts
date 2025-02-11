@@ -1,41 +1,55 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/global/prisma/prisma.service';
+import { QueryInputDto } from '../dto/calc.dto';
 
 @Injectable()
 export class CalculationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getNearByIncidents(userId: number): Promise<any> {
-    const { userLongitude, userLatitude } = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { userLatitude: true, userLongitude: true },
-    });
-
+  async getNearByIncidents(data: QueryInputDto): Promise<any> {
+    const lat = Number(data.lat);
+    const lng = Number(data.lng);
+  
+    if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
+      throw new HttpException('Invalid latitude or longitude', 400);
+    }
+    
     const geofences = await this.prisma.geofence.findMany({});
-
+    
     const nearbyGeofences = geofences.filter((geofence) => {
       const distance = this.haversineDistance(
-        userLatitude,
-        userLongitude,
+        lat,
+        lng,
         geofence.latitude,
         geofence.longitude,
       );
-
-      return distance <= 100000; 
+      
+      return distance <= 100000;
     });
-
-    nearbyGeofences.forEach((geofence) => {
+  
+    const sanitizedGeofences = nearbyGeofences.map((geofence) => {
       const distance = this.haversineDistance(
-        userLatitude,
-        userLongitude,
+        lat,
+        lng,
         geofence.latitude,
         geofence.longitude,
       );
-      geofence['distance'] = distance;
+  
+      return {
+        id: geofence.id,
+        name: geofence.name,
+        description: geofence.description,
+        latitude: geofence.latitude,
+        longitude: geofence.longitude,
+        distance: parseFloat(distance.toFixed(2)), 
+      };
     });
-
-    return nearbyGeofences;
+  
+    return {
+      nearbyGeofences: sanitizedGeofences,
+    };
   }
+  
 
   private haversineDistance(
     lat1: number,
@@ -55,7 +69,7 @@ export class CalculationService {
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c * 1000; 
+    return R * c * 1000;
   }
 
   degreesToRadians(degrees: number): number {

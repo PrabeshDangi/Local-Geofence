@@ -10,7 +10,7 @@ export class SchedularService {
   private readonly logger = new Logger(IncidentsService.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CronExpression.EVERY_12_HOURS)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();

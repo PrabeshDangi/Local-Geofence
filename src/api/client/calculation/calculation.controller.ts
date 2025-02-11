@@ -1,6 +1,7 @@
-import { Controller, Get, HttpCode, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, Query, Req, UseGuards } from '@nestjs/common';
 import { CalculationService } from './calculation.service';
 import { JwtGuard } from 'src/common/Guard/access.guard';
+import { QueryInputDto } from '../dto/calc.dto';
 
 @Controller('calculation')
 export class CalculationController {
@@ -9,12 +10,11 @@ export class CalculationController {
   @UseGuards(JwtGuard)
   @HttpCode(200)
   @Get('nearby-incidents')
-  async getNearByIncidents(@Req() req) {
+  async getNearByIncidents(@Query() QueryData: QueryInputDto,@Req() req) {
 
-    const userId=req.user.id
     
     const nearbyIncidents =
-      await this.calculationService.getNearByIncidents(userId);
+      await this.calculationService.getNearByIncidents(QueryData);
 
     return {
       message: 'Incidents fetched successfully!!',
