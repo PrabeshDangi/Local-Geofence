@@ -10,6 +10,7 @@ import {
   ChangePasswordDto,
   LoginDto,
   SignupDto,
+  UpdateDeviceTokenDto,
   UpdateUserLocationDto,
 } from './Dto/auth.dto';
 import { EmailService } from 'src/global/email/email.service';
@@ -254,10 +255,14 @@ export class AuthService {
   async updateUserLocation(data: UpdateUserLocationDto, userId: number) {
     const lat = data.lat;
     const long = data.long;
-  
+
     if (
-      Number.isFinite(lat) && lat >= -90 && lat <= 90 &&
-      Number.isFinite(long) && long >= -180 && long <= 180
+      Number.isFinite(lat) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      Number.isFinite(long) &&
+      long >= -180 &&
+      long <= 180
     ) {
       await this.prisma.user.update({
         where: { id: userId },
@@ -271,7 +276,27 @@ export class AuthService {
       throw new Error('Invalid latitude or longitude');
     }
   }
-  
+
+  async updateDeviceToken(data: UpdateDeviceTokenDto, userId: number) {
+    const isValidUser = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!isValidUser) {
+      throw new BadRequestException('User not found!!');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        deviceToken: data.deviceToken,
+      },
+    });
+
+    return;
+  }
 
   private async hashPassword(password: string) {
     const saltRound = 10;

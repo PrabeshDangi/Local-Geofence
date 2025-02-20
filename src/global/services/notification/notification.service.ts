@@ -7,7 +7,6 @@ export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
   constructor(private readonly prisma: PrismaService) {
-    // Initialize Firebase Admin SDK with service account credentials
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -19,7 +18,6 @@ export class NotificationService {
     }
   }
 
-  // Send Push Notification to the User
   async sendPushNotification(
     userId: number,
     message: string,

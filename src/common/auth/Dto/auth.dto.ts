@@ -77,3 +77,9 @@ export class UpdateUserLocationDto {
   @IsNotEmpty()
   lat: number;
 }
+
+export class UpdateDeviceTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  deviceToken: string;
+}

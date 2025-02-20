@@ -26,6 +26,7 @@ import {
   LoginDto,
   RefreshTokenDto,
   SignupDto,
+  UpdateDeviceTokenDto,
   UpdateUserLocationDto,
 } from './Dto/auth.dto';
 import { Tokens } from './Types/index';
@@ -152,6 +153,16 @@ export class AuthController {
     await this.authService.updateUserLocation(InputData, req.user.id);
     return new HttpResponse({
       message: 'User location updated successfully!!',
+    });
+  }
+
+  @UseGuards(JwtGuard)
+  @HttpCode(HttpStatus.OK)
+  @Patch('/device-token')
+  async updateDeviceToken(@Body() InputData: UpdateDeviceTokenDto, @Req() req) {
+    await this.authService.updateDeviceToken(InputData, req.user.id);
+    return new HttpResponse({
+      message: 'Device token updated successfully!!',
     });
   }
 }
