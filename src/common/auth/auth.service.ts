@@ -97,7 +97,6 @@ export class AuthService {
       where: { id: userAvailable.id },
       data: {
         deviceId: signindto.deviceId,
-        deviceType: signindto.deviceType,
         deviceToken: signindto.deviceToken,
       },
     });
