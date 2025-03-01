@@ -200,6 +200,10 @@ export class AuthService {
         email: true,
         role: true,
         isEmailVerified: true,
+        userLatitude:true,
+        userLongitude:true,
+        deviceToken: true,
+        
       },
     });
 
