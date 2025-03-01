@@ -1,11 +1,11 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class QueryInputDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   lat: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   lng: string;
 }

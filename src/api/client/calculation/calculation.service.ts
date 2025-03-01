@@ -1,21 +1,39 @@
-import { HttpException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaService } from 'src/global/prisma/prisma.service';
-import { QueryInputDto } from '../dto/calc.dto';
 
 @Injectable()
 export class CalculationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getNearByIncidents(data: QueryInputDto): Promise<any> {
-    const lat = Number(data.lat);
-    const lng = Number(data.lng);
-
-    if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
-      throw new HttpException('Invalid latitude or longitude', 400);
+  async getNearByIncidents(user: User): Promise<any> {
+    const data = await this.prisma.user.findUnique({
+      where: {
+        id: user.id,
+      },
+    });
+    const lat = Number(data.userLatitude);
+    const lng = Number(data.userLongitude);
+  
+    let geofences = await this.prisma.geofence.findMany({});
+    
+  
+    if ((data.userLatitude || data.userLongitude)=== null) {
+      const allGeofences = geofences.map((geofence) => ({
+        id: geofence.id,
+        name: geofence.name,
+        description: geofence.description,
+        latitude: geofence.latitude,
+        longitude: geofence.longitude,
+        hazard: geofence.hazard,
+      }));
+  
+      return {
+        count:allGeofences.length,
+        nearbyGeofences:allGeofences,
+      };
     }
-
-    const geofences = await this.prisma.geofence.findMany({});
-
+  
     const nearbyGeofences = geofences.filter((geofence) => {
       const distance = this.haversineDistance(
         lat,
@@ -23,10 +41,10 @@ export class CalculationService {
         geofence.latitude,
         geofence.longitude,
       );
-
+  
       return distance <= 100000;
     });
-
+  
     const sanitizedGeofences = nearbyGeofences.map((geofence) => {
       const distance = this.haversineDistance(
         lat,
@@ -34,7 +52,7 @@ export class CalculationService {
         geofence.latitude,
         geofence.longitude,
       );
-
+  
       return {
         id: geofence.id,
         name: geofence.name,
@@ -45,11 +63,14 @@ export class CalculationService {
         distance: parseFloat(distance.toFixed(2)),
       };
     });
-
+  
     return {
+      count:sanitizedGeofences.length,
       nearbyGeofences: sanitizedGeofences,
     };
   }
+  
+  
 
   private haversineDistance(
     lat1: number,

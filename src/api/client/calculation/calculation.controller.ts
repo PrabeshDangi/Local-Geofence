@@ -14,7 +14,7 @@ export class CalculationController {
 
     
     const nearbyIncidents =
-      await this.calculationService.getNearByIncidents(QueryData);
+      await this.calculationService.getNearByIncidents(req.user);
 
     return {
       message: 'Incidents fetched successfully!!',

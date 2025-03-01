@@ -68,7 +68,7 @@ export class AuthService {
     const userAvailable = await this.prisma.user.findUnique({
       where: {
         email,
-        //isEmailVerified: true
+        isEmailVerified: true
       },
     });
 
