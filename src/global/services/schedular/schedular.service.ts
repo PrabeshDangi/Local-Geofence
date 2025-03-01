@@ -15,7 +15,7 @@ export class SchedularService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron(CronExpression.EVERY_12_HOURS)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
@@ -27,25 +27,22 @@ export class SchedularService {
 
   async refreshIncidentData() {
     const fiveDaysAgo = subDays(new Date(), 5);
-    const allowedHazardCodes = [12, 10, 17, 11]; 
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.geofence.deleteMany({
-        where: {
-          incidentOn: {
-            lt: fiveDaysAgo,
-          },
-        },
-      });
-
-      const newIncidents = await this.fetchRecentIncidents(
-        fiveDaysAgo,
-        allowedHazardCodes,
-      );
-
-      if (newIncidents.length > 0) {
-        for (const incident of newIncidents) {
-          await tx.geofence.create({
+    const allowedHazardCodes = [12, 10, 17, 11];
+  
+    await this.prisma.geofence.deleteMany({});
+  
+    const newIncidents = await this.fetchRecentIncidents(
+      fiveDaysAgo,
+      allowedHazardCodes,
+    );
+  
+    const chunkSize = 5; 
+    for (let i = 0; i < newIncidents.length; i += chunkSize) {
+      const chunk = newIncidents.slice(i, i + chunkSize);
+  
+      const createdIncidents = await this.prisma.$transaction(async (tx) => {
+        const createPromises = chunk.map(incident => {
+          return tx.geofence.create({
             data: {
               name: incident.title,
               description: incident.description || '',
@@ -60,22 +57,26 @@ export class SchedularService {
               radiusSecondary: 2000,
             },
           });
-
-          const nearbyUsers = await this.getNearbyUsers(
-            incident.coordinates,
-            250,
-          );
-
-          for (const user of nearbyUsers) {
-            await this.notificationService.sendPushNotification(
-              user.id,
-              incident.title,
-            );
-          }
-        }
+        });
+  
+        return Promise.all(createPromises);
+      }, { timeout: 30000 }); 
+  
+      for (const incident of createdIncidents) {
+        const nearbyUsers = await this.getNearbyUsers(
+          [incident.longitude, incident.latitude],
+          250,
+        );
+  
+        // await Promise.all(nearbyUsers.map(user => 
+        //   this.notificationService.sendPushNotification(user.id, incident.name)
+        // ));
       }
-    });
+    }
   }
+  
+  
+  
 
   async fetchRecentIncidents(fiveDaysAgo: Date, allowedHazardCodes: number[]) {
     try {

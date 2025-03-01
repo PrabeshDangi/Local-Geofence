@@ -14,26 +14,46 @@ export class CalculationService {
     });
     const lat = Number(data.userLatitude);
     const lng = Number(data.userLongitude);
-  
-    let geofences = await this.prisma.geofence.findMany({});
-    
-  
-    if ((data.userLatitude || data.userLongitude)=== null) {
-      const allGeofences = geofences.map((geofence) => ({
-        id: geofence.id,
-        name: geofence.name,
-        description: geofence.description,
-        latitude: geofence.latitude,
-        longitude: geofence.longitude,
-        hazard: geofence.hazard,
-      }));
-  
-      return {
-        count:allGeofences.length,
-        nearbyGeofences:allGeofences,
-      };
+
+    let geofences = await this.prisma.geofence.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        longitude: true,
+        latitude: true,
+        incidentOn: true,
+        reportedOn: true,
+        verified: true,
+        dataSource: true,
+        hazard: true,
+        radiusPrimary: true,
+        radiusSecondary: true,
+      },
+    });
+
+    if ((data.userLatitude || data.userLongitude) === null) {
+      const sanitizedGeofences = geofences.map((geofence) => {
+        return {
+          id: geofence.id,
+          name: geofence.name,
+          description: geofence.description,
+          latitude: geofence.latitude,
+          longitude: geofence.longitude,
+          hazard: geofence.hazard,
+          incidentOn: geofence.incidentOn,
+          reportedOn: geofence.reportedOn,
+          verified: geofence.verified,
+          dataSource: geofence.dataSource,
+          radiusPrimary: geofence.radiusPrimary,
+          radiusSecondary: geofence.radiusSecondary,
+          distance: null,
+        };
+      });
+
+      return sanitizedGeofences;
     }
-  
+
     const nearbyGeofences = geofences.filter((geofence) => {
       const distance = this.haversineDistance(
         lat,
@@ -41,10 +61,10 @@ export class CalculationService {
         geofence.latitude,
         geofence.longitude,
       );
-  
+
       return distance <= 100000;
     });
-  
+
     const sanitizedGeofences = nearbyGeofences.map((geofence) => {
       const distance = this.haversineDistance(
         lat,
@@ -52,7 +72,7 @@ export class CalculationService {
         geofence.latitude,
         geofence.longitude,
       );
-  
+
       return {
         id: geofence.id,
         name: geofence.name,
@@ -60,17 +80,18 @@ export class CalculationService {
         latitude: geofence.latitude,
         longitude: geofence.longitude,
         hazard: geofence.hazard,
+        incidentOn: geofence.incidentOn,
+        reportedOn: geofence.reportedOn,
+        verified: geofence.verified,
+        dataSource: geofence.dataSource,
+        radiusPrimary: geofence.radiusPrimary,
+        radiusSecondary: geofence.radiusSecondary,
         distance: parseFloat(distance.toFixed(2)),
       };
     });
-  
-    return {
-      count:sanitizedGeofences.length,
-      nearbyGeofences: sanitizedGeofences,
-    };
+
+    return sanitizedGeofences;
   }
-  
-  
 
   private haversineDistance(
     lat1: number,
