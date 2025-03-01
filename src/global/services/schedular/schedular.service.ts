@@ -28,55 +28,64 @@ export class SchedularService {
   async refreshIncidentData() {
     const fiveDaysAgo = subDays(new Date(), 5);
     const allowedHazardCodes = [12, 10, 17, 11];
-  
+
     await this.prisma.geofence.deleteMany({});
-  
+
     const newIncidents = await this.fetchRecentIncidents(
       fiveDaysAgo,
       allowedHazardCodes,
     );
-  
-    const chunkSize = 5; 
+
+    const chunkSize = 5;
+
     for (let i = 0; i < newIncidents.length; i += chunkSize) {
       const chunk = newIncidents.slice(i, i + chunkSize);
-  
-      const createdIncidents = await this.prisma.$transaction(async (tx) => {
-        const createPromises = chunk.map(incident => {
-          return tx.geofence.create({
-            data: {
-              name: incident.title,
-              description: incident.description || '',
-              longitude: incident.coordinates[0],
-              latitude: incident.coordinates[1],
-              incidentOn: new Date(incident.incidentOn),
-              reportedOn: new Date(incident.reportedOn),
-              verified: incident.verified,
-              dataSource: incident.dataSource,
-              hazard: incident.hazard,
-              radiusPrimary: 1000,
-              radiusSecondary: 2000,
-            },
+
+      await this.prisma.$transaction(
+        async (tx) => {
+          const createPromises = chunk.map((incident) => {
+            return tx.geofence.create({
+              data: {
+                name: incident.title,
+                description: incident.description || '',
+                longitude: incident.coordinates[0],
+                latitude: incident.coordinates[1],
+                incidentOn: new Date(incident.incidentOn),
+                reportedOn: new Date(incident.reportedOn),
+                verified: incident.verified,
+                dataSource: incident.dataSource,
+                hazard: incident.hazard,
+                radiusPrimary: 1000,
+                radiusSecondary: 2000,
+              },
+            });
           });
-        });
-  
-        return Promise.all(createPromises);
-      }, { timeout: 30000 }); 
-  
-      for (const incident of createdIncidents) {
-        const nearbyUsers = await this.getNearbyUsers(
-          [incident.longitude, incident.latitude],
-          250,
-        );
-  
-        // await Promise.all(nearbyUsers.map(user => 
-        //   this.notificationService.sendPushNotification(user.id, incident.name)
-        // ));
-      }
+
+          return Promise.all(createPromises);
+        },
+        { timeout: 30000 },
+      );
     }
+    const users = await this.prisma.user.findMany({
+      where: {
+        deviceToken: { not: null },
+      },
+    });
+
+    const uniqueUserIds: number[] = [];
+
+    for (const user of users) {
+      uniqueUserIds.push(user.id);
+    }
+
+    const message = `New incidents have been reported nearby your location.`;
+
+    await Promise.all(
+      Array.from(uniqueUserIds).map((userId) =>
+        this.notificationService.sendPushNotification(userId, message),
+      ),
+    );
   }
-  
-  
-  
 
   async fetchRecentIncidents(fiveDaysAgo: Date, allowedHazardCodes: number[]) {
     try {

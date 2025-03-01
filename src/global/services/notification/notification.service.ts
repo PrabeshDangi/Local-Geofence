@@ -32,7 +32,7 @@ export class NotificationService {
 
     try {
       await this.sendFCMNotification(deviceToken, title, message);
-      this.logger.log(`Notification sent to user ${userId}`);
+      console.log(`Notification sent to user ${userId}`);
     } catch (error) {
       this.logger.error(
         `Failed to send notification to user ${userId}: ${error.message}`,
@@ -46,17 +46,13 @@ export class NotificationService {
     message: string,
   ) {
     try {
-      const response = await admin.messaging().send({
+      await admin.messaging().send({
         token: deviceToken,
         notification: {
           title: title,
           body: message,
         },
       });
-
-      this.logger.log(
-        `Push notification sent to device ${deviceToken} with message: ${message} (Response: ${response})`,
-      );
     } catch (error) {
       this.logger.error(
         `Failed to send push notification to device ${deviceToken}: ${error.message}`,
