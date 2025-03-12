@@ -16,17 +16,18 @@ export class IncidentsService {
   async getIncidentById(id: number) {
     const incident = await this.prisma.geofence.findUnique({
       where: { id, archive: false },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        longitude: true,
-        latitude: true,
-        incidentOn: true,
-        reportedOn: true,
-        verified: true,
-        dataSource: true,
-      },
+      // select: {
+      //   id: true,
+      //   name: true,
+      //   description: true,
+      //   longitude: true,
+      //   latitude: true,
+      //   incidentOn: true,
+      //   reportedOn: true,
+      //   verified: true,
+      //   dataSource: true,
+      //   hazard: true,
+      // },
     });
 
     if (!incident) {
