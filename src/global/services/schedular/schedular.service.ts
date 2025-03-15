@@ -1,21 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
-import { subDays } from 'date-fns';
-import { IncidentsService } from 'src/global/incidents/incidents.service';
+import { startOfDay, subDays } from 'date-fns';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz'; // Import time zone utilities
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
-export class SchedularService {
-  private readonly logger = new Logger(IncidentsService.name);
+export class SchedulerService {
+  private readonly logger = new Logger(SchedulerService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CronExpression.EVERY_DAY_AT_8AM)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
@@ -26,141 +26,115 @@ export class SchedularService {
   }
 
   async refreshIncidentData() {
-    const fiveDaysAgo = subDays(new Date(), 5);
-    const allowedHazardCodes = [12, 10, 17, 11];
+    const nepalTimeZone = 'Asia/Kathmandu';
 
-    await this.prisma.geofence.deleteMany({});
+    const currentDateInNepal = toZonedTime(new Date(), nepalTimeZone);
+    const fiveDaysAgoInNepal = subDays(currentDateInNepal, 5);
+    const fiveDaysAgoUTC = fromZonedTime(fiveDaysAgoInNepal, nepalTimeZone);
 
-    const newIncidents = await this.fetchRecentIncidents(
-      fiveDaysAgo,
-      allowedHazardCodes,
+    await this.prisma.geofence.deleteMany({
+      where: { incidentOn: { lt: fiveDaysAgoUTC } },
+    });
+
+    const allIncidents = await this.fetchIncidents();
+    const fiveDaysAgoDate = startOfDay(fiveDaysAgoUTC);
+
+    const recentIncidents = allIncidents.filter((incident) => {
+      const incidentDate = startOfDay(new Date(incident.incidentOn));
+
+      return incidentDate >= fiveDaysAgoDate;
+    });
+
+    this.logger.log(
+      `Number of recent incidents to upsert: ${recentIncidents.length}`,
     );
 
     const chunkSize = 5;
+    for (let i = 0; i < recentIncidents.length; i += chunkSize) {
+      const chunk = recentIncidents.slice(i, i + chunkSize);
 
-    for (let i = 0; i < newIncidents.length; i += chunkSize) {
-      const chunk = newIncidents.slice(i, i + chunkSize);
-
-      await this.prisma.$transaction(
-        async (tx) => {
-          const createPromises = chunk.map((incident) => {
-            return tx.geofence.create({
-              data: {
-                name: incident.title,
-                description: incident.description || '',
-                longitude: incident.coordinates[0],
-                latitude: incident.coordinates[1],
-                incidentOn: new Date(incident.incidentOn),
-                reportedOn: new Date(incident.reportedOn),
-                verified: incident.verified,
-                dataSource: incident.dataSource,
-                hazard: incident.hazard,
-                radiusPrimary: 1000,
-                radiusSecondary: 2000,
-              },
+      try {
+        await this.prisma.$transaction(
+          async (tx) => {
+            const upsertPromises = chunk.map((incident) => {
+              return tx.geofence.upsert({
+                where: {
+                  incidentOn_longitude_latitude: {
+                    incidentOn: new Date(incident.incidentOn),
+                    longitude: incident.coordinates[0],
+                    latitude: incident.coordinates[1],
+                  },
+                },
+                update: {
+                  name: incident.title,
+                  description: incident.description || '',
+                  verified: incident.verified,
+                  dataSource: incident.dataSource,
+                  hazard: incident.hazard,
+                  radiusPrimary: 1000,
+                  radiusSecondary: 2000,
+                },
+                create: {
+                  name: incident.title,
+                  description: incident.description || '',
+                  longitude: incident.coordinates[0],
+                  latitude: incident.coordinates[1],
+                  incidentOn: new Date(incident.incidentOn),
+                  reportedOn: new Date(incident.reportedOn),
+                  verified: incident.verified,
+                  dataSource: incident.dataSource,
+                  hazard: incident.hazard,
+                  radiusPrimary: 1000,
+                  radiusSecondary: 2000,
+                },
+              });
             });
-          });
 
-          return Promise.all(createPromises);
-        },
-        { timeout: 30000 },
-      );
+            return Promise.all(upsertPromises);
+          },
+          { timeout: 30000 },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Database transaction failed: ${error.message}`,
+          error,
+        );
+      }
     }
+
     const users = await this.prisma.user.findMany({
-      where: {
-        deviceToken: { not: null },
-      },
+      where: { deviceToken: { not: null } },
     });
-
-    const uniqueUserIds: number[] = [];
-
-    for (const user of users) {
-      uniqueUserIds.push(user.id);
-    }
-
     const message = `New incidents have been reported nearby your location.`;
 
     await Promise.all(
-      Array.from(uniqueUserIds).map((userId) =>
-        this.notificationService.sendPushNotification(userId, message),
+      users.map((user) =>
+        this.notificationService.sendPushNotification(user.id, message),
       ),
     );
+
+    this.logger.log('Incident data refresh complete.');
   }
 
-  async fetchRecentIncidents(fiveDaysAgo: Date, allowedHazardCodes: number[]) {
+  async fetchIncidents() {
     try {
-      const response = await axios.get(
-        'https://bipadportal.gov.np/api/v1/incident/',
-        {
-          params: {
-            incident_on__gt: fiveDaysAgo.toISOString(),
-            incident_on__lt: new Date().toISOString(),
-            ordering: '-incident_on',
-            limit: -1,
-            data_source: 'drr_api',
-          },
-        },
-      );
+      const response = await axios.get(process.env.BASE_URL);
 
-      const filteredIncidents = response.data.results
-        .filter((incident) => allowedHazardCodes.includes(incident.hazard))
-        .map((incident) => ({
+      return response.data.results.map((incident: any) => {
+        return {
           title: incident.title,
           description: incident.titleNe,
-          coordinates: incident.point?.coordinates || [0, 0], // Default to [0, 0] if coordinates are missing
+          coordinates: incident.point?.coordinates || [0, 0],
           incidentOn: incident.incidentOn,
           reportedOn: incident.reportedOn,
           verified: incident.verified,
           dataSource: incident.dataSource,
           hazard: incident.hazard,
-        }));
-
-      return filteredIncidents;
+        };
+      });
     } catch (error) {
       this.logger.error('Failed to fetch incidents', error);
       return [];
     }
-  }
-
-  async getNearbyUsers(
-    incidentCoordinates: [number, number],
-    radiusKm: number,
-  ) {
-    const users = await this.prisma.user.findMany({
-      where: {
-        userLongitude: { not: null },
-        userLatitude: { not: null },
-      },
-    });
-
-    return users.filter(async (user) => {
-      const distance = this.getDistanceFromLatLonInKm(
-        incidentCoordinates[1],
-        incidentCoordinates[0],
-        user.userLatitude,
-        user.userLongitude,
-      );
-      return (await distance) <= radiusKm;
-    });
-  }
-
-  async getDistanceFromLatLonInKm(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): Promise<number> {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    return distance;
   }
 }
