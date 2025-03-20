@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
-import { startOfDay, subDays } from 'date-fns';
-import { toZonedTime, fromZonedTime } from 'date-fns-tz'; // Import time zone utilities
+import { startOfDay, subDays, isAfter } from 'date-fns';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
@@ -15,7 +14,7 @@ export class SchedulerService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_8AM)
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
@@ -26,23 +25,21 @@ export class SchedulerService {
   }
 
   async refreshIncidentData() {
-    const nepalTimeZone = 'Asia/Kathmandu';
-
-    const currentDateInNepal = toZonedTime(new Date(), nepalTimeZone);
-    const fiveDaysAgoInNepal = subDays(currentDateInNepal, 5);
-    const fiveDaysAgoUTC = fromZonedTime(fiveDaysAgoInNepal, nepalTimeZone);
+    const fiveDaysAgo = startOfDay(subDays(new Date(), 5));
 
     await this.prisma.geofence.deleteMany({
-      where: { incidentOn: { lt: fiveDaysAgoUTC } },
+      where: {
+        incidentOn: {
+          lt: fiveDaysAgo, 
+        },
+      },
     });
 
     const allIncidents = await this.fetchIncidents();
-    const fiveDaysAgoDate = startOfDay(fiveDaysAgoUTC);
 
     const recentIncidents = allIncidents.filter((incident) => {
       const incidentDate = startOfDay(new Date(incident.incidentOn));
-
-      return incidentDate >= fiveDaysAgoDate;
+      return isAfter(incidentDate, fiveDaysAgo); 
     });
 
     this.logger.log(
@@ -54,57 +51,53 @@ export class SchedulerService {
       const chunk = recentIncidents.slice(i, i + chunkSize);
 
       try {
-        await this.prisma.$transaction(
-          async (tx) => {
-            const upsertPromises = chunk.map((incident) => {
-              return tx.geofence.upsert({
-                where: {
-                  incidentOn_longitude_latitude: {
-                    incidentOn: new Date(incident.incidentOn),
-                    longitude: incident.coordinates[0],
-                    latitude: incident.coordinates[1],
-                  },
-                },
-                update: {
-                  name: incident.title,
-                  description: incident.description || '',
-                  verified: incident.verified,
-                  dataSource: incident.dataSource,
-                  hazard: incident.hazard,
-                  radiusPrimary: 1000,
-                  radiusSecondary: 2000,
-                },
-                create: {
-                  name: incident.title,
-                  description: incident.description || '',
+        await this.prisma.$transaction(async (tx) => {
+          const upsertPromises = chunk.map((incident) => {
+            return tx.geofence.upsert({
+              where: {
+                incidentOn_longitude_latitude: {
+                  incidentOn: new Date(incident.incidentOn),
                   longitude: incident.coordinates[0],
                   latitude: incident.coordinates[1],
-                  incidentOn: new Date(incident.incidentOn),
-                  reportedOn: new Date(incident.reportedOn),
-                  verified: incident.verified,
-                  dataSource: incident.dataSource,
-                  hazard: incident.hazard,
-                  radiusPrimary: 1000,
-                  radiusSecondary: 2000,
                 },
-              });
+              },
+              update: {
+                name: incident.title,
+                description: incident.description || '',
+                verified: incident.verified,
+                dataSource: incident.dataSource,
+                hazard: incident.hazard,
+                radiusPrimary: 1000,
+                radiusSecondary: 2000,
+              },
+              create: {
+                name: incident.title,
+                description: incident.description || '',
+                longitude: incident.coordinates[0],
+                latitude: incident.coordinates[1],
+                incidentOn: new Date(incident.incidentOn),
+                reportedOn: new Date(incident.reportedOn),
+                verified: incident.verified,
+                dataSource: incident.dataSource,
+                hazard: incident.hazard,
+                radiusPrimary: 1000,
+                radiusSecondary: 2000,
+              },
             });
+          });
 
-            return Promise.all(upsertPromises);
-          },
-          { timeout: 30000 },
-        );
+          return Promise.all(upsertPromises);
+        }, { timeout: 30000 });
       } catch (error) {
-        this.logger.error(
-          `Database transaction failed: ${error.message}`,
-          error,
-        );
+        this.logger.error('Database transaction failed:', error);
       }
     }
 
+    // Send push notifications to users
     const users = await this.prisma.user.findMany({
       where: { deviceToken: { not: null } },
     });
+
     const message = `New incidents have been reported nearby your location.`;
 
     await Promise.all(
@@ -119,7 +112,6 @@ export class SchedulerService {
   async fetchIncidents() {
     try {
       const response = await axios.get(process.env.BASE_URL);
-
       return response.data.results.map((incident: any) => {
         return {
           title: incident.title,
