@@ -93,14 +93,6 @@ export class AuthService {
       role: userAvailable.role,
     });
 
-    await this.prisma.user.update({
-      where: { id: userAvailable.id },
-      data: {
-        deviceId: signindto.deviceId,
-        deviceToken: signindto.deviceToken,
-      },
-    });
-
     return {
       accessToken,
       refreshToken,
