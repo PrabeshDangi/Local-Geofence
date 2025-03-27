@@ -8,6 +8,7 @@ import { SchedulerService } from './global/services/schedular/schedular.service'
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { NotificationService } from './global/services/notification/notification.service';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NotificationService } from './global/services/notification/notification
     ClientModule,
     AuthModule,
     IncidentsModule,
+    ScheduleModule.forRoot({}),
   ],
   controllers: [AppController],
   providers: [AppService, SchedulerService, NotificationService],

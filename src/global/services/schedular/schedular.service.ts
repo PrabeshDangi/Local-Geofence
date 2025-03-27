@@ -14,7 +14,7 @@ export class SchedulerService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron("0 */6 * * *")
+  @Cron(CronExpression.EVERY_DAY_AT_6AM)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
@@ -96,18 +96,17 @@ export class SchedulerService {
       }
     }
 
-    // Send push notifications to users
     const users = await this.prisma.user.findMany({
       where: { deviceToken: { not: null } },
     });
 
     const message = `New incidents have been reported nearby your location.`;
 
-    // await Promise.all(
-    //   users.map((user) =>
-    //     this.notificationService.sendPushNotification(user.id, message),
-    //   ),
-    // );
+    await Promise.all(
+      users.map((user) =>
+        this.notificationService.sendPushNotification(user.id, message),
+      ),
+    );
 
     this.logger.log('Incident data refresh complete.');
   }
