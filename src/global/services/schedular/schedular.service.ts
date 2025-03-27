@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
-import { startOfDay, subDays, isAfter } from 'date-fns';
+import { isAfter, startOfDay, subDays } from 'date-fns';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
@@ -14,7 +14,7 @@ export class SchedulerService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  @Cron("0 */6 * * *")
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
@@ -25,12 +25,12 @@ export class SchedulerService {
   }
 
   async refreshIncidentData() {
-    const fiveDaysAgo = startOfDay(subDays(new Date(), 5));
+    const threeDaysAgo = startOfDay(subDays(new Date(), 4));
 
     await this.prisma.geofence.deleteMany({
       where: {
         incidentOn: {
-          lt: fiveDaysAgo, 
+          lt: threeDaysAgo,
         },
       },
     });
@@ -39,7 +39,7 @@ export class SchedulerService {
 
     const recentIncidents = allIncidents.filter((incident) => {
       const incidentDate = startOfDay(new Date(incident.incidentOn));
-      return isAfter(incidentDate, fiveDaysAgo); 
+      return isAfter(incidentDate, threeDaysAgo);
     });
 
     this.logger.log(
@@ -51,43 +51,46 @@ export class SchedulerService {
       const chunk = recentIncidents.slice(i, i + chunkSize);
 
       try {
-        await this.prisma.$transaction(async (tx) => {
-          const upsertPromises = chunk.map((incident) => {
-            return tx.geofence.upsert({
-              where: {
-                incidentOn_longitude_latitude: {
-                  incidentOn: new Date(incident.incidentOn),
+        await this.prisma.$transaction(
+          async (tx) => {
+            const upsertPromises = chunk.map((incident) => {
+              return tx.geofence.upsert({
+                where: {
+                  incidentOn_longitude_latitude: {
+                    incidentOn: new Date(incident.incidentOn),
+                    longitude: incident.coordinates[0],
+                    latitude: incident.coordinates[1],
+                  },
+                },
+                update: {
+                  name: incident.title,
+                  description: incident.description || '',
+                  verified: incident.verified,
+                  dataSource: incident.dataSource,
+                  hazard: incident.hazard,
+                  radiusPrimary: 1000,
+                  radiusSecondary: 2000,
+                },
+                create: {
+                  name: incident.title,
+                  description: incident.description || '',
                   longitude: incident.coordinates[0],
                   latitude: incident.coordinates[1],
+                  incidentOn: new Date(incident.incidentOn),
+                  reportedOn: new Date(incident.reportedOn),
+                  verified: incident.verified,
+                  dataSource: incident.dataSource,
+                  hazard: incident.hazard,
+                  radiusPrimary: 1000,
+                  radiusSecondary: 2000,
                 },
-              },
-              update: {
-                name: incident.title,
-                description: incident.description || '',
-                verified: incident.verified,
-                dataSource: incident.dataSource,
-                hazard: incident.hazard,
-                radiusPrimary: 1000,
-                radiusSecondary: 2000,
-              },
-              create: {
-                name: incident.title,
-                description: incident.description || '',
-                longitude: incident.coordinates[0],
-                latitude: incident.coordinates[1],
-                incidentOn: new Date(incident.incidentOn),
-                reportedOn: new Date(incident.reportedOn),
-                verified: incident.verified,
-                dataSource: incident.dataSource,
-                hazard: incident.hazard,
-                radiusPrimary: 1000,
-                radiusSecondary: 2000,
-              },
+              });
             });
-          });
 
-          return Promise.all(upsertPromises);
-        }, { timeout: 30000 });
+            return Promise.all(upsertPromises);
+          },
+          { timeout: 30000 },
+        );
       } catch (error) {
         this.logger.error('Database transaction failed:', error);
       }
@@ -100,11 +103,11 @@ export class SchedulerService {
 
     const message = `New incidents have been reported nearby your location.`;
 
-    await Promise.all(
-      users.map((user) =>
-        this.notificationService.sendPushNotification(user.id, message),
-      ),
-    );
+    // await Promise.all(
+    //   users.map((user) =>
+    //     this.notificationService.sendPushNotification(user.id, message),
+    //   ),
+    // );
 
     this.logger.log('Incident data refresh complete.');
   }
