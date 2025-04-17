@@ -12,12 +12,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot({}),
     PrismaModule,
     AdminModule,
     ClientModule,
     AuthModule,
     IncidentsModule,
-    ScheduleModule.forRoot({}),
   ],
   controllers: [AppController],
   providers: [AppService, SchedulerService, NotificationService],

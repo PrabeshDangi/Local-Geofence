@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
-import { isAfter, startOfDay, subDays } from 'date-fns';
 import { PrismaService } from 'src/global/prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 
@@ -14,7 +13,7 @@ export class SchedulerService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_6AM)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleIncidentRefresh() {
     try {
       await this.refreshIncidentData();
@@ -25,12 +24,15 @@ export class SchedulerService {
   }
 
   async refreshIncidentData() {
-    const threeDaysAgo = startOfDay(subDays(new Date(), 4));
+    const now = new Date();
+    const threeDaysAgoUTC = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 4),
+    );
 
     await this.prisma.geofence.deleteMany({
       where: {
         incidentOn: {
-          lt: threeDaysAgo,
+          lt: threeDaysAgoUTC,
         },
       },
     });
@@ -38,8 +40,8 @@ export class SchedulerService {
     const allIncidents = await this.fetchIncidents();
 
     const recentIncidents = allIncidents.filter((incident) => {
-      const incidentDate = startOfDay(new Date(incident.incidentOn));
-      return isAfter(incidentDate, threeDaysAgo);
+      const incidentDate = new Date(incident.incidentOn);
+      return incidentDate >= threeDaysAgoUTC;
     });
 
     this.logger.log(
