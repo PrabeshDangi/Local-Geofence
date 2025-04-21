@@ -10,6 +10,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nest start",
     "start:dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nest start --watch",
+    "start:scheduler": "cross-env NODE_OPTIONS=--max-old-space-size=4096 node dist/main-scheduler.js",
     "start:debug": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nest start --debug --watch",
     "start:prod": "cross-env NODE_OPTIONS=--max-old-space-size=4096 node dist/main",
     "seed:user": "ts-node src/global/Seeder/user.seeder.ts",
