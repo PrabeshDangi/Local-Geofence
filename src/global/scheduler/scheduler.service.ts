@@ -1,8 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
 import { PrismaService } from 'src/global/prisma/prisma.service';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationService } from '../services/notification/notification.service';
 
 @Injectable()
 export class SchedulerService {
@@ -12,16 +11,6 @@ export class SchedulerService {
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
   ) {}
-
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  async handleIncidentRefresh() {
-    try {
-      await this.refreshIncidentData();
-      this.logger.log('Incident/geofence data refreshed');
-    } catch (error) {
-      this.logger.error('Failed to refresh incident/geofence data', error);
-    }
-  }
 
   async refreshIncidentData() {
     const now = new Date();
