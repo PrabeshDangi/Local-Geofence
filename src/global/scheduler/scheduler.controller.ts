@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { SchedulerService } from './scheduler.service';
 
-@Controller('schedular')
+@Controller()
 export class SchedulerController {
   constructor(private readonly schedulerService: SchedulerService) {}
 

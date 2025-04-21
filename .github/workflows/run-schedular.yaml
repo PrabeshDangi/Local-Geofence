@@ -12,5 +12,5 @@ jobs:
     steps:
       - name: Send HTTP request to trigger scheduler
         run: |
-          curl -X GET "https://local-geofence.onrender.com/run-scheduler" \
+          curl -X GET "https://local-geofence.onrender.com/api/run-scheduler" \
           -H "x-api-key: ${{ secrets.SCHEDULER_API_KEY }}"
